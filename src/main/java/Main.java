@@ -1,23 +1,32 @@
+import model.Book;
+import model.Chef;
+import model.Cousine;
+import model.Restaurant;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.rdf.model.impl.PropertyImpl;
 import org.apache.jena.riot.RDFParser;
+import org.apache.jena.sparql.vocabulary.FOAF;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.io.IOException;
+import java.util.*;
 
 public class Main {
+
     public static String URL = "http://dbpedia.org/data/XXX.ttl";
-//    public static List<String> activeMembersToSend = new ArrayList<String>();
-//    public static List<String> pastMembersToSend = new ArrayList<String>();
-//    public static List<String> genresToSend = new ArrayList<String>();
-//    public static List<String> recordLabelsToSend = new ArrayList<String>();
+    public static String WIKI_URL = "http://en.wikipedia.org/wiki/XXX";
+
 
     public static void main(String[] args) throws IOException {
-        List<String> ratings = new ArrayList<>(); //ratings, bio,
+        List<String> ratings = new ArrayList<>();
         List<String> tvShows = new ArrayList<>();
         List<String> cousines = new ArrayList<>();
+        List<Book> books = new ArrayList<>();
+        List<Cousine> cousineList = new ArrayList<>();
+        List<Restaurant> restaurantList = new ArrayList<>();
+        Chef chefModel = new Chef();
+        Book bookModel = new Book();
+        Restaurant restaurantModel = new Restaurant();
+        Cousine cousineModel = new Cousine();
 
         Scanner scanner = new Scanner(System.in);
         String chef = scanner.nextLine();
@@ -33,8 +42,48 @@ public class Main {
 
         Resource chefResource = model.getResource(resURL);
 
-
+        String chefName1 = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name"), "en").getObject().toString();
         String bio = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+        String chefWebsite = WIKI_URL.replace("XXX", chefName1.replace(" ", "_")).replace("@en", "");
+        chefModel.setBio(bio);
+        chefModel.setName(chefName1);
+        chefModel.setWebsite(chefWebsite);
+
+        /* BOOKS */
+        Property bookProperty = model.getProperty("http://dbpedia.org/ontology/author");
+        ResIterator bookIterator = model.listSubjectsWithProperty(bookProperty);
+        while (bookIterator.hasNext()) {
+            String bookUrl = bookIterator.nextResource().getProperty(bookProperty).getSubject().toString();
+
+            Model modelBook = ModelFactory.createDefaultModel();
+            RDFParser.source(bookUrl).httpAccept("text/turtle").parse(modelBook.getGraph());
+            Resource bookResource = modelBook.getResource(bookUrl);
+
+            String bookName = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name")).getObject().toString().replace("@en", "");
+            String bookDescription = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+            String published = "";
+            String bookWebSite = "";
+            if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/published"))) {
+                published = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/published")).getObject().toString();
+            }
+            if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/ontology/releaseDate"))) {
+                published = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/releaseDate")).getObject().toString();
+            }
+            String bookWebsite = null;
+            if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/website"))) {
+                bookWebsite = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/website")).getObject().toString();
+            }
+
+            published = published.replace("^^http://www.w3.org/2001/XMLSchema#date", "");
+            bookModel.setName(bookName);
+            bookModel.setDescription(bookDescription);
+            bookModel.setPublished(published);
+            bookModel.setWebsite(Optional.ofNullable(bookWebsite));
+            books.add(bookModel);
+        }
+        chefModel.setBooks(books);
+        //TODO maybe reference to empty array when you switch authors?
+        books = new ArrayList<>();
 
         /* RATINGS */
         StmtIterator ratingsIterator = chefResource.listProperties(new PropertyImpl("http://dbpedia.org/property/ratings"));
@@ -46,6 +95,8 @@ public class Main {
                 ratings.add(ratingObject.replace("@en", ""));
             }
         }
+        chefModel.setRatings(ratings);
+
         /* TV SHOWS */
         Property propertyStarring = model.getProperty("http://dbpedia.org/ontology/starring");
         ResIterator tvShowIterator = model.listSubjectsWithProperty(propertyStarring);
@@ -55,160 +106,91 @@ public class Main {
             tvShow = tvShow.replaceFirst("s", "");
             tvShows.add(tvShow);
         }
+        chefModel.setTvShows(tvShows);
 
         /* CUSINES */
-        Property propertyCuisine = model.getProperty("http://dbpedia.org/property/style");
-        ResIterator cusineIterator = model.listSubjectsWithProperty(propertyCuisine);
+        StmtIterator cusineIterator = chefResource.listProperties(new PropertyImpl("http://dbpedia.org/property/style"));
         while (cusineIterator.hasNext()) {
-            Resource resource = cusineIterator.nextResource().getProperty(propertyCuisine).getResource();
-            String name = resource.getLocalName();
+            Statement statement = cusineIterator.nextStatement();
+            String objectUrl = statement.getObject().toString();
 
-            URL = URL.replace("XXX", name);
-            Model modelCuisine = ModelFactory.createDefaultModel();
-            RDFParser.source(URL).httpAccept("text/turtle").parse(modelCuisine.getGraph());
-            String resUrl = URL.replace("data", "resource");
-            URL = URL.replace(name, "XXX");
-            resUrl = resUrl.replace(".ttl", "");
+            Model modelRestaurant = ModelFactory.createDefaultModel();
+            RDFParser.source(objectUrl).httpAccept("text/turtle").parse(modelRestaurant.getGraph());
+            Resource cuisineResource = modelRestaurant.getResource(objectUrl);
 
-            Resource cuisineResource = modelCuisine.getResource(resUrl);
-
+            String name = cuisineResource.getLocalName().replace("_", " ");
             String description = cuisineResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
-            System.out.println(name);
             System.out.println(description);
+            System.out.println(name);
+            cousineModel.setName(name);
+            cousineModel.setDescription(description);
+
+            //fetch chefs
+            Property propertyChefNames = modelRestaurant.getProperty("http://dbpedia.org/property/style");
+            ResIterator propertyChefNamesIterator = modelRestaurant.listSubjectsWithProperty(propertyChefNames);
+            // TODO: implement SPARQL query for filtering only 5 chefs
+            int counter = 0;
+            while (propertyChefNamesIterator.hasNext()) {
+                counter++;
+                if (counter == 5) {
+                    cousineModel.setChefNames(cousines);
+                    cousines = new ArrayList<>();
+                    break;
+                } else {
+                    Resource chefNameResourceSubject = propertyChefNamesIterator.nextResource().getProperty(propertyChefNames).getSubject();
+                    String[] parts = chefNameResourceSubject.toString().split("/");
+                    String chefName = parts[parts.length - 1].replace("_", " ");
+                    cousines.add(chefName);
+                }
+            }
+//            cousineModel.setChefNames(cousines);
+            cousineList.add(cousineModel);
+            cousineModel = new Cousine();
         }
+        chefModel.setCuisines(cousineList);
 
+        /* RESTAURANTS */
+        Property propertyOwner = model.getProperty("http://dbpedia.org/ontology/owner");
+        ResIterator propertyOwnerIterator = model.listSubjectsWithProperty(propertyOwner);
+        while (propertyOwnerIterator.hasNext()) {
+            Resource restaurantResourceSubject = propertyOwnerIterator.nextResource().getProperty(propertyOwner).getSubject();
+            System.out.println(restaurantResourceSubject.toString());
 
-//    public static void main(String[] args) throws IOException {
-//        Scanner scanner = new Scanner(System.in);
-//        String artist = scanner.nextLine();
-//        artist = artist.replace(" ", "_");
-//        URL = URL.replace("XXX", artist);
-//        Model model = ModelFactory.createDefaultModel();
-//
-//        RDFParser.source(URL).httpAccept("text/turtle").parse(model.getGraph());
-//
-////        try {
-////            model.write(new FileWriter("C:\\Users\\Viktor\\Desktop\\artist.ttl"), "TURTLE");
-////        } catch (IOException e) {
-////            e.printStackTrace();
-////        }
-////        System.out.println("\n\n********\n\n");
-//
-//        String resURL = URL.replace("data", "resource");
-//        resURL = resURL.replace(".ttl", "");
-//
-//        Resource performer = model.getResource(resURL);
-//
-//        String bio = performer.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
-//        //  System.out.println(bio);
-//
-//        String comment = performer.getProperty(RDFS.comment, "en").getObject().toString();
-//
-//        String startYear = performer.getProperty(new PropertyImpl("http://dbpedia.org/ontology/activeYearsStartYear")).getObject().toString();
-//
-//        String actualStartYear = String.valueOf(startYear.charAt(0)) +
-//                startYear.charAt(1) +
-//                startYear.charAt(2) +
-//                startYear.charAt(3);
-//
-//
-//        String actualEndYear = "";
-//        String endYear;
-//        if (performer.hasProperty(new PropertyImpl("http://dbpedia.org/ontology/activeYearsEndYear"))) {
-//            endYear = performer.getProperty(new PropertyImpl("http://dbpedia.org/ontology/activeYearsEndYear")).getObject().toString();
-//
-//            actualEndYear = String.valueOf(endYear.charAt(0)) +
-//                    endYear.charAt(1) +
-//                    endYear.charAt(2) +
-//                    endYear.charAt(3);
-//        }
-//
-//        StmtIterator activeMembers = performer.listProperties(new PropertyImpl("http://dbpedia.org/ontology/bandMember"));
-//        if(activeMembers.hasNext()){
-//            while (activeMembers.hasNext()){
-//                Statement member = activeMembers.nextStatement();
-//                //System.out.println(member.getObject().toString());
-//                String fullUrl = member.getObject().toString();
-//                String[] ss = fullUrl.split("/");
-//                activeMembersToSend.add(ss[ss.length-1].replace("_", " "));
-//            }
-//        }
-//
-//        StmtIterator pastMembers = performer.listProperties(new PropertyImpl("http://dbpedia.org/ontology/formerBandMember"));
-//        if(pastMembers.hasNext()){
-//            while (pastMembers.hasNext()){
-//                Statement member = pastMembers.nextStatement();
-//                //System.out.println(member.getObject().toString());
-//                String fullUrl = member.getObject().toString();
-//                String[] ss = fullUrl.split("/");
-//                pastMembersToSend.add(ss[ss.length-1].replace("_", " "));
-//            }
-//        }
-//
-//        StmtIterator genres = performer.listProperties(new PropertyImpl("http://dbpedia.org/ontology/genre"));
-//        if(genres.hasNext()){
-//            while (genres.hasNext()){
-//                Statement genre = genres.nextStatement();
-//                // System.out.println(genre.getObject().toString());
-//                String fullUrl = genre.getObject().toString();
-//                String[] ss = fullUrl.split("/");
-//                genresToSend.add(ss[ss.length-1].replace("_", " "));
-//            }
-//        }
-//
-//        StmtIterator recordLabels = performer.listProperties(new PropertyImpl("http://dbpedia.org/ontology/recordLabel"));
-//        if(recordLabels.hasNext()){
-//            while (recordLabels.hasNext()){
-//                Statement recordLabel = recordLabels.nextStatement();
-//                //System.out.println(recordLabel.getObject().toString());
-//                String fullUrl = recordLabel.getObject().toString();
-//                String[] ss = fullUrl.split("/");
-//                recordLabelsToSend.add(ss[ss.length-1].replace("_", " "));
-//            }
-//        }
-//
-//        String picture = performer.getProperty(FOAF.depiction).getObject().toString();
-//
-//
-//        String homepage = "None";
-//        if(performer.hasProperty(FOAF.homepage))
-//            homepage = performer.getProperty(FOAF.homepage).getObject().toString();
-//
-//        System.out.println(actualStartYear + " - " + actualEndYear);
-//        System.out.println(comment);
-//        System.out.println("Active Members:\n" + activeMembersToSend);
-//        System.out.println("Former Members:\n" + pastMembersToSend);
-//        System.out.println("Genres:\n" + genresToSend);
-//        System.out.println("Record Labels:\n" + recordLabelsToSend);
-//        System.out.println("Picture:\n" + picture);
-//        System.out.println("Homepage:\n" + homepage);
-//
-//        System.out.println("\n*****\n");
-//        SPARQL(artist);
-//    }
-//
-//
-//    public static void SPARQL(String artist) throws IOException {
-//        String queryString = "PREFIX dbo: <http://dbpedia.org/ontology/>\n" +
-//                "PREFIX dbp: <http://dbpedia.org/property/>\n" +
-//                "PREFIX dbr: <http://dbpedia.org/resource/>" +
-//                "select distinct ?album_name ?year\n" +
-//                "where{\n" +
-//                "?album dbo:artist dbr:ARTIST.\n" +
-//                "?album dbp:thisAlbum ?album_name.\n" +
-//                "?album dbo:releaseDate ?year\n" +
-//                "}";
-//        queryString = queryString.replace("ARTIST", artist);
-//        Query query = QueryFactory.create(queryString);
-//        QueryExecution queryExecution = QueryExecutionFactory.sparqlService("https://dbpedia.org/sparql", query);
-//        ResultSet resultSet = queryExecution.execSelect();
-//        System.out.println("Albums:\n");
-//        while(resultSet.hasNext()){
-//            QuerySolution querySolution = resultSet.nextSolution();
-//            String[] ss = querySolution.toString().split("\"");
-//            System.out.println(ss[1]);
-//        }
-//    }
+            String resUrl = restaurantResourceSubject.toString();
+            Model modelRestaurant = ModelFactory.createDefaultModel();
+            RDFParser.source(resUrl).httpAccept("text/turtle").parse(modelRestaurant.getGraph());
+
+            Resource restaurantResource = modelRestaurant.getResource(resUrl);
+            String restaurantName = restaurantResource.getProperty(FOAF.name, "en").getObject().toString().replace("@en", "");
+
+            String description = restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+
+            Optional<String> country = Optional.ofNullable(restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/property/country")).getObject().toString());
+            if (country.isPresent()) {
+                String countryName = "";
+                if (country.get().contains("resource")) {
+                    String[] parts = country.get().split("/");
+                    countryName = parts[parts.length - 1].replace("_", " ");
+                } else {
+                    countryName = country.get().toString().replace("@en", "");
+                }
+                restaurantModel.setCountry(countryName);
+
+            }
+            String website = "";
+            if (restaurantResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/website"))) {
+                website = restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/property/website")).getObject().toString();
+                restaurantModel.setWebsite(website);
+            }
+            restaurantModel.setName(restaurantName);
+            restaurantModel.setDescription(description);
+            restaurantList.add(restaurantModel);
+            restaurantModel = new Restaurant();
+        }
+        if (restaurantList.isEmpty()) {
+            chefModel.setOwnerOf(Collections.EMPTY_LIST);
+        } else {
+            chefModel.setOwnerOf(restaurantList);
+        }
     }
 }
-

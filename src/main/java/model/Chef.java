@@ -1,14 +1,14 @@
 package model;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
 
 @Getter
 @Setter
-@AllArgsConstructor
+@NoArgsConstructor
 public class Chef {
 
     String name;
@@ -16,7 +16,6 @@ public class Chef {
     String website;
     List<String> ratings;
     List<String> tvShows;
-    Restaurant restaurant;
     List<Restaurant> ownerOf;
     List<Cousine> cuisines;
     List<Book> books;
