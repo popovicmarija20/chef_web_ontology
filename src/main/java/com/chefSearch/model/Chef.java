@@ -1,4 +1,4 @@
-package model;
+package com.chefSearch.model;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

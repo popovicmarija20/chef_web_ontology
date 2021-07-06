@@ -1,19 +1,17 @@
-package model;
+package com.chefSearch.model;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
-
 @Getter
 @Setter
 @NoArgsConstructor
-public class Cousine {
+public class Restaurant {
 
     String name;
-    List<String> chefNames;
+    String website;
+    String country;
     String description;
 
 }
