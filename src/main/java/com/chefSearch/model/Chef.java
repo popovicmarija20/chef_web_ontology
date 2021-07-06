@@ -13,6 +13,9 @@ public class Chef {
 
     String name;
     String bio;
+    String birthDate;
+    String birthPlace;
+    String photo;
     String website;
     List<String> ratings;
     List<String> tvShows;

@@ -1,9 +1,10 @@
-package com.chefSearch.service;
+package com.chefSearch.service.implementation;
 
 import com.chefSearch.model.Book;
 import com.chefSearch.model.Chef;
 import com.chefSearch.model.Cousine;
 import com.chefSearch.model.Restaurant;
+import com.chefSearch.service.ChefService;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.rdf.model.impl.PropertyImpl;
 import org.apache.jena.riot.RDFParser;
@@ -49,11 +50,18 @@ public class ChefServiceImpl implements ChefService {
 
         Resource chefResource = model.getResource(resURL);
 
-        String chefName1 = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name"), "en").getObject().toString();
-        String bio = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+        String chefName1 = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name"), "en").getObject().toString().replace("@en", "");
+        String bio = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
+        String birthDate = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/birthDate")).getObject().toString().replace("^^http://www.w3.org/2001/XMLSchema#date", "");
+        String birthPlace = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/birthPlace")).getResource().getLocalName().replace("_", "");
+        String thumbnail = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/thumbnail")).getObject().toString();
+
         String chefWebsite = WIKI_URL.replace("XXX", chefName1.replace(" ", "_")).replace("@en", "");
         chefModel.setBio(bio);
         chefModel.setName(chefName1);
+        chefModel.setBirthDate(birthDate);
+        chefModel.setBirthPlace(birthPlace);
+        chefModel.setPhoto(thumbnail);
         chefModel.setWebsite(chefWebsite);
 
         /* BOOKS */
@@ -67,7 +75,7 @@ public class ChefServiceImpl implements ChefService {
             Resource bookResource = modelBook.getResource(bookUrl);
 
             String bookName = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name")).getObject().toString().replace("@en", "");
-            String bookDescription = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+            String bookDescription = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
             String published = "";
             String bookWebSite = "";
             if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/published"))) {
@@ -126,7 +134,7 @@ public class ChefServiceImpl implements ChefService {
             Resource cuisineResource = modelRestaurant.getResource(objectUrl);
 
             String name = cuisineResource.getLocalName().replace("_", " ");
-            String description = cuisineResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+            String description = cuisineResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
             System.out.println(description);
             System.out.println(name);
             cousineModel.setName(name);
@@ -170,7 +178,7 @@ public class ChefServiceImpl implements ChefService {
             Resource restaurantResource = modelRestaurant.getResource(resUrl);
             String restaurantName = restaurantResource.getProperty(FOAF.name, "en").getObject().toString().replace("@en", "");
 
-            String description = restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString();
+            String description = restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
 
             Optional<String> country = Optional.ofNullable(restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/property/country")).getObject().toString());
             if (country.isPresent()) {
