@@ -134,17 +134,17 @@ public class ChefServiceImpl implements ChefService {
         chefModel.setWebsite(chefWebsite);
     }
 
-    public static void SPARQL(String artist, Chef chefModel) throws IOException {
+    public static void SPARQL(String chef, Chef chefModel) throws IOException {
         String queryString = "PREFIX dbo: <http://dbpedia.org/ontology/>\n" +
                 "PREFIX dbp: <http://dbpedia.org/property/>\n" +
                 "PREFIX dbr: <http://dbpedia.org/resource/>" +
                 "select  ?bio ?birthDate\n" +
                 "where{\n" +
-                "dbr:ARTIST dbo:abstract ?bio\n;" +
+                "dbr:CHEF dbo:abstract ?bio\n;" +
                 "dbo:birthDate ?birthDate." +
                 "FILTER(lang(?bio) = \"en\")\n" +
                 "}";
-        queryString = queryString.replace("ARTIST", artist);
+        queryString = queryString.replace("CHEF", chef);
         Query query = QueryFactory.create(queryString);
         QueryExecution queryExecution = QueryExecutionFactory.sparqlService("https://dbpedia.org/sparql", query);
         ResultSet resultSet = queryExecution.execSelect();
