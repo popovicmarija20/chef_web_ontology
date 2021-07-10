@@ -16,5 +16,4 @@ public class Book {
     Optional<String> website;
     String published;
 
-
 }

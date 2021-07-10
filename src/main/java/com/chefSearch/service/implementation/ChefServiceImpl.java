@@ -4,26 +4,39 @@ import com.chefSearch.model.Book;
 import com.chefSearch.model.Chef;
 import com.chefSearch.model.Cousine;
 import com.chefSearch.model.Restaurant;
-import com.chefSearch.service.ChefService;
+import com.chefSearch.service.*;
+import org.apache.jena.query.*;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.rdf.model.impl.PropertyImpl;
 import org.apache.jena.riot.RDFParser;
-import org.apache.jena.sparql.vocabulary.FOAF;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ChefServiceImpl implements ChefService {
 
     public static String URL = "http://dbpedia.org/data/XXX.ttl";
     public static String WIKI_URL = "http://en.wikipedia.org/wiki/XXX";
+    private final BookService bookService;
+    private final RatingsService ratingsService;
+    private final TvShowService tvShowService;
+    private final CuisineService cuisineService;
+    private final RestaurantService restaurantService;
+
+    public ChefServiceImpl(BookService bookService, RatingsService ratingsService, TvShowService tvShowService, CuisineService cuisineService, RestaurantService restaurantService) {
+        this.bookService = bookService;
+        this.ratingsService = ratingsService;
+        this.tvShowService = tvShowService;
+        this.cuisineService = cuisineService;
+        this.restaurantService = restaurantService;
+    }
 
     @Override
-    public Chef getChef(String chef) {
+    public Chef getChef(String chef) throws IOException {
 
         List<String> ratings = new ArrayList<>();
         List<String> tvShows = new ArrayList<>();
@@ -36,8 +49,6 @@ public class ChefServiceImpl implements ChefService {
         Restaurant restaurantModel = new Restaurant();
         Cousine cousineModel = new Cousine();
 
-//            Scanner scanner = new Scanner(System.in);
-//            String chef = scanner.nextLine();
         chef = chef.replace(" ", "_");
         URL = URL.replace("XXX", chef);
         Model model = ModelFactory.createDefaultModel();
@@ -49,20 +60,7 @@ public class ChefServiceImpl implements ChefService {
         resURL = resURL.replace(".ttl", "");
 
         Resource chefResource = model.getResource(resURL);
-
-        String chefName1 = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name"), "en").getObject().toString().replace("@en", "");
-        String bio = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
-        String birthDate = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/birthDate")).getObject().toString().replace("^^http://www.w3.org/2001/XMLSchema#date", "");
-        String birthPlace = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/birthPlace")).getResource().getLocalName().replace("_", "");
-        String thumbnail = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/thumbnail")).getObject().toString();
-
-        String chefWebsite = WIKI_URL.replace("XXX", chefName1.replace(" ", "_")).replace("@en", "");
-        chefModel.setBio(bio);
-        chefModel.setName(chefName1);
-        chefModel.setBirthDate(birthDate);
-        chefModel.setBirthPlace(birthPlace);
-        chefModel.setPhoto(thumbnail);
-        chefModel.setWebsite(chefWebsite);
+        createChef(chefResource, chefModel, chef);
 
         /* BOOKS */
         Property bookProperty = model.getProperty("http://dbpedia.org/ontology/author");
@@ -74,54 +72,19 @@ public class ChefServiceImpl implements ChefService {
             RDFParser.source(bookUrl).httpAccept("text/turtle").parse(modelBook.getGraph());
             Resource bookResource = modelBook.getResource(bookUrl);
 
-            String bookName = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name")).getObject().toString().replace("@en", "");
-            String bookDescription = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
-            String published = "";
-            String bookWebSite = "";
-            if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/published"))) {
-                published = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/published")).getObject().toString();
-            }
-            if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/ontology/releaseDate"))) {
-                published = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/releaseDate")).getObject().toString();
-            }
-            String bookWebsite = null;
-            if (bookResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/website"))) {
-                bookWebsite = bookResource.getProperty(new PropertyImpl("http://dbpedia.org/property/website")).getObject().toString();
-            }
-
-            published = published.replace("^^http://www.w3.org/2001/XMLSchema#date", "");
-            bookModel.setName(bookName);
-            bookModel.setDescription(bookDescription);
-            bookModel.setPublished(published);
-            bookModel.setWebsite(Optional.ofNullable(bookWebsite));
-            books.add(bookModel);
+            bookService.createBooks(bookResource, bookModel, books);
         }
         chefModel.setBooks(books);
-        //TODO maybe reference to empty array when you switch authors?
         books = new ArrayList<>();
 
         /* RATINGS */
         StmtIterator ratingsIterator = chefResource.listProperties(new PropertyImpl("http://dbpedia.org/property/ratings"));
-        if (ratingsIterator.hasNext()) {
-            while (ratingsIterator.hasNext()) {
-                Statement rating = ratingsIterator.nextStatement();
-
-                String ratingObject = rating.getObject().toString();
-                ratings.add(ratingObject.replace("@en", ""));
-            }
-        }
-        chefModel.setRatings(ratings);
+        ratingsService.createRatings(chefModel, ratingsIterator, ratings);
 
         /* TV SHOWS */
         Property propertyStarring = model.getProperty("http://dbpedia.org/ontology/starring");
         ResIterator tvShowIterator = model.listSubjectsWithProperty(propertyStarring);
-        while (tvShowIterator.hasNext()) {
-            String tvShowWithUnderScore = tvShowIterator.nextResource().getProperty(propertyStarring).getSubject().getLocalName();
-            String tvShow = tvShowWithUnderScore.replace("_", " ");
-            tvShow = tvShow.replaceFirst("s", "");
-            tvShows.add(tvShow);
-        }
-        chefModel.setTvShows(tvShows);
+        tvShowService.createTvShows(chefModel, tvShowIterator, tvShows, propertyStarring);
 
         /* CUSINES */
         StmtIterator cusineIterator = chefResource.listProperties(new PropertyImpl("http://dbpedia.org/property/style"));
@@ -133,34 +96,7 @@ public class ChefServiceImpl implements ChefService {
             RDFParser.source(objectUrl).httpAccept("text/turtle").parse(modelRestaurant.getGraph());
             Resource cuisineResource = modelRestaurant.getResource(objectUrl);
 
-            String name = cuisineResource.getLocalName().replace("_", " ");
-            String description = cuisineResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
-            System.out.println(description);
-            System.out.println(name);
-            cousineModel.setName(name);
-            cousineModel.setDescription(description);
-
-            //fetch chefs
-            Property propertyChefNames = modelRestaurant.getProperty("http://dbpedia.org/property/style");
-            ResIterator propertyChefNamesIterator = modelRestaurant.listSubjectsWithProperty(propertyChefNames);
-            // TODO: implement SPARQL query for filtering only 5 chefs
-            int counter = 0;
-            while (propertyChefNamesIterator.hasNext()) {
-                counter++;
-                if (counter == 5) {
-                    cousineModel.setChefNames(cousines);
-                    cousines = new ArrayList<>();
-                    break;
-                } else {
-                    Resource chefNameResourceSubject = propertyChefNamesIterator.nextResource().getProperty(propertyChefNames).getSubject();
-                    String[] parts = chefNameResourceSubject.toString().split("/");
-                    String chefName = parts[parts.length - 1].replace("_", " ");
-                    cousines.add(chefName);
-                }
-            }
-//            cousineModel.setChefNames(cousines);
-            cousineList.add(cousineModel);
-            cousineModel = new Cousine();
+            cuisineService.createCuisines(cuisineResource, cousineModel, cousineList, modelRestaurant, cousines);
         }
         chefModel.setCuisines(cousineList);
 
@@ -169,38 +105,14 @@ public class ChefServiceImpl implements ChefService {
         ResIterator propertyOwnerIterator = model.listSubjectsWithProperty(propertyOwner);
         while (propertyOwnerIterator.hasNext()) {
             Resource restaurantResourceSubject = propertyOwnerIterator.nextResource().getProperty(propertyOwner).getSubject();
-            System.out.println(restaurantResourceSubject.toString());
 
             String resUrl = restaurantResourceSubject.toString();
             Model modelRestaurant = ModelFactory.createDefaultModel();
             RDFParser.source(resUrl).httpAccept("text/turtle").parse(modelRestaurant.getGraph());
 
             Resource restaurantResource = modelRestaurant.getResource(resUrl);
-            String restaurantName = restaurantResource.getProperty(FOAF.name, "en").getObject().toString().replace("@en", "");
 
-            String description = restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/abstract"), "en").getObject().toString().replace("@en", "");
-
-            Optional<String> country = Optional.ofNullable(restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/property/country")).getObject().toString());
-            if (country.isPresent()) {
-                String countryName = "";
-                if (country.get().contains("resource")) {
-                    String[] parts = country.get().split("/");
-                    countryName = parts[parts.length - 1].replace("_", " ");
-                } else {
-                    countryName = country.get().toString().replace("@en", "");
-                }
-                restaurantModel.setCountry(countryName);
-
-            }
-            String website = "";
-            if (restaurantResource.hasProperty(new PropertyImpl("http://dbpedia.org/property/website"))) {
-                website = restaurantResource.getProperty(new PropertyImpl("http://dbpedia.org/property/website")).getObject().toString();
-                restaurantModel.setWebsite(website);
-            }
-            restaurantModel.setName(restaurantName);
-            restaurantModel.setDescription(description);
-            restaurantList.add(restaurantModel);
-            restaurantModel = new Restaurant();
+            restaurantService.createRestaurants(restaurantResource, restaurantModel, restaurantList);
         }
         if (restaurantList.isEmpty()) {
             chefModel.setOwnerOf(Collections.EMPTY_LIST);
@@ -210,4 +122,39 @@ public class ChefServiceImpl implements ChefService {
         return chefModel;
     }
 
+    private void createChef(Resource chefResource, Chef chefModel, String chef) throws IOException {
+        String chefName = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/property/name"), "en").getObject().toString().replace("@en", "");
+        String birthPlace = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/birthPlace")).getResource().getLocalName().replace("_", "");
+        String thumbnail = chefResource.getProperty(new PropertyImpl("http://dbpedia.org/ontology/thumbnail")).getObject().toString();
+        String chefWebsite = WIKI_URL.replace("XXX", chefName.replace(" ", "_")).replace("@en", "");
+        SPARQL(chef, chefModel);
+        chefModel.setName(chefName);
+        chefModel.setBirthPlace(birthPlace);
+        chefModel.setPhoto(thumbnail);
+        chefModel.setWebsite(chefWebsite);
+    }
+
+    public static void SPARQL(String artist, Chef chefModel) throws IOException {
+        String queryString = "PREFIX dbo: <http://dbpedia.org/ontology/>\n" +
+                "PREFIX dbp: <http://dbpedia.org/property/>\n" +
+                "PREFIX dbr: <http://dbpedia.org/resource/>" +
+                "select  ?bio ?birthDate\n" +
+                "where{\n" +
+                "dbr:ARTIST dbo:abstract ?bio\n;" +
+                "dbo:birthDate ?birthDate." +
+                "FILTER(lang(?bio) = \"en\")\n" +
+                "}";
+        queryString = queryString.replace("ARTIST", artist);
+        Query query = QueryFactory.create(queryString);
+        QueryExecution queryExecution = QueryExecutionFactory.sparqlService("https://dbpedia.org/sparql", query);
+        ResultSet resultSet = queryExecution.execSelect();
+        while (resultSet.hasNext()) {
+            QuerySolution querySolution = resultSet.nextSolution();
+            String[] parts = querySolution.toString().split("\"");
+            String bio = parts[1];
+            String birthDate = parts[3];
+            chefModel.setBio(bio);
+            chefModel.setBirthDate(birthDate);
+        }
+    }
 }

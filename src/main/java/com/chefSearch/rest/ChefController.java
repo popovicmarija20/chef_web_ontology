@@ -9,23 +9,24 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.io.IOException;
+
 
 @Controller
 @CrossOrigin(origins = "http://localhost:8000")
 @RequestMapping("/api/chef")
 public class ChefController {
 
-   public final ChefService chefService;
+    public final ChefService chefService;
 
     public ChefController(ChefService chefService) {
         this.chefService = chefService;
     }
 
-
     @GetMapping("/{name}")
-    public ResponseEntity<Chef> getChef(@PathVariable String name){
+    public ResponseEntity<Chef> getChef(@PathVariable String name) throws IOException {
         Chef chef = chefService.getChef(name);
-        return  ResponseEntity.ok(chef);
+        return ResponseEntity.ok(chef);
     }
 
 }
