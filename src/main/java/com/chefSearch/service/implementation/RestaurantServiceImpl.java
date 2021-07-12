@@ -38,6 +38,5 @@ public class RestaurantServiceImpl implements RestaurantService {
         restaurantModel.setName(restaurantName);
         restaurantModel.setDescription(description);
         restaurantList.add(restaurantModel);
-        restaurantModel = new Restaurant();
     }
 }

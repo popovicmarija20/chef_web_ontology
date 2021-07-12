@@ -29,7 +29,6 @@ public class CuisineServiceImpl implements CuisineService {
             counter++;
             if (counter == 5) {
                 cousineModel.setChefNames(cousines);
-                cousines = new ArrayList<>();
                 break;
             } else {
                 Resource chefNameResourceSubject = propertyChefNamesIterator.nextResource().getProperty(propertyChefNames).getSubject();
@@ -38,8 +37,6 @@ public class CuisineServiceImpl implements CuisineService {
                 cousines.add(chefName);
             }
         }
-//            cousineModel.setChefNames(cousines);
         cousineList.add(cousineModel);
-        cousineModel = new Cousine();
     }
 }

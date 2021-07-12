@@ -97,6 +97,8 @@ public class ChefServiceImpl implements ChefService {
             Resource cuisineResource = modelRestaurant.getResource(objectUrl);
 
             cuisineService.createCuisines(cuisineResource, cousineModel, cousineList, modelRestaurant, cousines);
+            cousines = new ArrayList<>();
+            cousineModel = new Cousine();
         }
         chefModel.setCuisines(cousineList);
 
@@ -113,6 +115,7 @@ public class ChefServiceImpl implements ChefService {
             Resource restaurantResource = modelRestaurant.getResource(resUrl);
 
             restaurantService.createRestaurants(restaurantResource, restaurantModel, restaurantList);
+            restaurantModel = new Restaurant();
         }
         if (restaurantList.isEmpty()) {
             chefModel.setOwnerOf(Collections.EMPTY_LIST);
