@@ -20,7 +20,7 @@ public class Chef {
     List<String> ratings;
     List<String> tvShows;
     List<Restaurant> ownerOf;
-    List<Cousine> cuisines;
+    List<Cuisine> cuisines;
     List<Book> books;
 
 }

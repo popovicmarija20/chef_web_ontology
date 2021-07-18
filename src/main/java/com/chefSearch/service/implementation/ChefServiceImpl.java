@@ -2,7 +2,7 @@ package com.chefSearch.service.implementation;
 
 import com.chefSearch.model.Book;
 import com.chefSearch.model.Chef;
-import com.chefSearch.model.Cousine;
+import com.chefSearch.model.Cuisine;
 import com.chefSearch.model.Restaurant;
 import com.chefSearch.service.*;
 import org.apache.jena.query.*;
@@ -40,14 +40,14 @@ public class ChefServiceImpl implements ChefService {
 
         List<String> ratings = new ArrayList<>();
         List<String> tvShows = new ArrayList<>();
-        List<String> cousines = new ArrayList<>();
+        List<String> cuisines = new ArrayList<>();
         List<Book> books = new ArrayList<>();
-        List<Cousine> cousineList = new ArrayList<>();
+        List<Cuisine> cuisineList = new ArrayList<>();
         List<Restaurant> restaurantList = new ArrayList<>();
         Chef chefModel = new Chef();
         Book bookModel = new Book();
         Restaurant restaurantModel = new Restaurant();
-        Cousine cousineModel = new Cousine();
+        Cuisine cuisineModel = new Cuisine();
 
         chef = chef.replace(" ", "_");
         URL = URL.replace("XXX", chef);
@@ -86,21 +86,21 @@ public class ChefServiceImpl implements ChefService {
         ResIterator tvShowIterator = model.listSubjectsWithProperty(propertyStarring);
         tvShowService.createTvShows(chefModel, tvShowIterator, tvShows, propertyStarring);
 
-        /* CUSINES */
-        StmtIterator cusineIterator = chefResource.listProperties(new PropertyImpl("http://dbpedia.org/property/style"));
-        while (cusineIterator.hasNext()) {
-            Statement statement = cusineIterator.nextStatement();
+        /* CUISINES */
+        StmtIterator cuisineIterator = chefResource.listProperties(new PropertyImpl("http://dbpedia.org/property/style"));
+        while (cuisineIterator.hasNext()) {
+            Statement statement = cuisineIterator.nextStatement();
             String objectUrl = statement.getObject().toString();
 
             Model modelRestaurant = ModelFactory.createDefaultModel();
             RDFParser.source(objectUrl).httpAccept("text/turtle").parse(modelRestaurant.getGraph());
             Resource cuisineResource = modelRestaurant.getResource(objectUrl);
 
-            cuisineService.createCuisines(cuisineResource, cousineModel, cousineList, modelRestaurant, cousines);
-            cousines = new ArrayList<>();
-            cousineModel = new Cousine();
+            cuisineService.createCuisines(cuisineResource, cuisineModel, cuisineList, modelRestaurant, cuisines);
+            cuisines = new ArrayList<>();
+            cuisineModel = new Cuisine();
         }
-        chefModel.setCuisines(cousineList);
+        chefModel.setCuisines(cuisineList);
 
         /* RESTAURANTS */
         Property propertyOwner = model.getProperty("http://dbpedia.org/ontology/owner");

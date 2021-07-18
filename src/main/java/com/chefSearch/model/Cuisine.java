@@ -9,7 +9,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Cousine {
+public class Cuisine {
 
     String name;
     List<String> chefNames;
